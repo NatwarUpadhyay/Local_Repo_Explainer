@@ -36,6 +36,52 @@ export default function ChatInterface({ jobId, repoData, modelId, modelPath }: C
     scrollToBottom();
   }, [messages]);
 
+  const sanitiseText = (value?: string, limit = 1200) => {
+    if (!value) return '';
+    const trimmed = value.trim();
+    return trimmed.length > limit ? `${trimmed.slice(0, limit)}...` : trimmed;
+  };
+
+  const buildContextPayload = () => {
+    if (!repoData?.result) {
+      return `Repository: ${repoData?.repo_url || 'Local Upload'}`;
+    }
+
+    const { result } = repoData;
+    const languages = Array.from(
+      new Set(
+        (result.nodes || [])
+          .map((node: any) => node.language)
+          .filter((lang?: string) => Boolean(lang))
+      )
+    ) as string[];
+
+    const describedNodes = (result.nodes || [])
+      .filter((node: any) => node.description)
+      .slice(0, 5)
+      .map(
+        (node: any) =>
+          `${node.label || node.id}: ${sanitiseText(node.description, 300)}`
+      );
+
+    const sections = [
+      `Repository: ${repoData.repo_url || 'Local Upload'}`,
+      `Files analyzed: ${result.files_analyzed ?? result.nodes?.length ?? 0}`,
+      languages.length ? `Languages detected: ${languages.join(', ')}` : null,
+      sanitiseText(result.overview)
+        ? `Overview:\n${sanitiseText(result.overview)}`
+        : null,
+      sanitiseText(result.vulnerability_analysis)
+        ? `Security notes:\n${sanitiseText(result.vulnerability_analysis)}`
+        : null,
+      describedNodes.length
+        ? `Key components:\n- ${describedNodes.join('\n- ')}`
+        : null,
+    ];
+
+    return sections.filter(Boolean).join('\n\n');
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
@@ -52,12 +98,9 @@ export default function ChatInterface({ jobId, repoData, modelId, modelPath }: C
 
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-      
-      // Build context from repo data
-      const context = `Repository: ${repoData.repo_url || 'Local Upload'}
-Analysis Summary: ${repoData.result?.summary || 'No summary available'}
-Files Analyzed: ${repoData.result?.nodes?.length || 0}
-Languages: ${repoData.result?.nodes?.map((n: any) => n.language).filter((l: string) => l).join(', ') || 'Unknown'}`;
+
+      // Build rich context from repo insights
+      const context = buildContextPayload();
 
       const response = await fetch(`${apiUrl}/api/v1/chat`, {
         method: 'POST',

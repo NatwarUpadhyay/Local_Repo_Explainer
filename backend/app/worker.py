@@ -1,7 +1,9 @@
 # backend/app/worker.py
 import os
+import re
 import uuid
 import logging
+from collections import Counter
 from contextlib import contextmanager
 
 from sqlmodel import create_engine, Session
@@ -11,6 +13,15 @@ from celery import Celery
 # --- Logging ---
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("repoinsight.worker")
+
+REQUIRED_OVERVIEW_SECTIONS = [
+    "**Project Snapshot**",
+    "**Architecture Map**",
+    "**Component Deep Dive**",
+    "**Technology Stack**",
+    "**Operational Considerations**",
+    "**Recommended Next Actions**",
+]
 
 # --- Celery Setup (env defaults to Redis for dev, fallback to database on Windows) ---
 CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
@@ -54,6 +65,92 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def _build_fallback_overview(
+    repo_name: str,
+    file_count: int,
+    languages: set[str],
+    directories: list[tuple[str, int]],
+    key_files: list[str],
+) -> str:
+    """Return deterministic, structured overview when LLM output is unusable."""
+
+    language_summary = (
+        ", ".join(sorted(languages)) if languages else "multiple languages"
+    )
+    dir_names = ", ".join(name for name, _ in directories) if directories else "root"
+
+    component_lines = (
+        "\n".join(
+            f"{idx + 1}. {name} – approx {count} files"
+            for idx, (name, count) in enumerate(directories[:3])
+        )
+        if directories
+        else "1. Root – mixture of application files and assets"
+    )
+
+    key_file_lines = (
+        "\n".join(f"- {path}" for path in key_files[:5])
+        if key_files
+        else "- Inspect README.md, package.json, or main application entry points"
+    )
+
+    return f"""**Project Snapshot**
+- Purpose: Automated fallback summary for {repo_name}. Review README or docs for exact domain details.
+- Primary technologies: {language_summary}
+- Entry points: {directories[0][0] if directories else 'Project root'}
+
+**Architecture Map**
+- Structure: {repo_name} contains {file_count} tracked files with top-level folders {dir_names or 'root files only'}.
+- Key modules & responsibilities:
+{component_lines}
+- Data / control flow: Inspect API routes or Next.js pages to trace requests through the system.
+
+**Component Deep Dive**
+{component_lines}
+
+Key files worth reviewing:
+{key_file_lines}
+
+**Technology Stack**
+- Frameworks & libraries: Derived from package manifests (e.g., Next.js/React, Prisma, auth libraries).
+- Tooling / build pipeline: Node.js scripts plus lint/test tooling defined in package.json.
+- External integrations: Refer to API clients or .env usage for upstream services (e.g., authentication, email, analytics).
+
+**Operational Considerations**
+- Performance or scalability notes: Review data-heavy routes and Prisma queries for pagination/caching opportunities.
+- Security / compliance notes: Harden authentication flows, secrets management, and environment separation.
+- Testing & observability state: Confirm unit/integration coverage and logging around critical workflows.
+
+**Recommended Next Actions**
+1. Audit README/package.json to confirm project purpose and run instructions.
+2. Trace primary user flows through top directories ({dir_names or 'root'}) to map dependencies.
+3. Document deployment/runtime requirements (env vars, build commands, infrastructure)."""
+
+
+def _has_placeholder_tokens(text: str) -> bool:
+    """Detect unfinished template markers in LLM output."""
+    if not text or not text.strip():
+        return True
+
+    placeholder_tokens = [
+        "<SECTION_NAME>",
+        "<SUBSECTION_NAME>",
+        "<DETAILED_DESCRIPTION>",
+    ]
+    if any(token in text for token in placeholder_tokens):
+        return True
+
+    # Generic catch-all for ALL CAPS tags often left by unfinished templates
+    return bool(re.search(r"<[A-Z_\s]+>", text))
+
+
+def _missing_required_sections(text: str) -> bool:
+    """Ensure structured overview headings are present."""
+    if not text:
+        return True
+    return any(section not in text for section in REQUIRED_OVERVIEW_SECTIONS)
 
 
 # --- The Celery task (lazy imports inside the task) ---
@@ -427,6 +524,15 @@ def analyze_repository_task(
             elif ext == ".kt":
                 detected_languages.add("Kotlin")
 
+        dir_counter = Counter()
+        for rel_path in all_files:
+            parts = rel_path.split("/")
+            top_dir = parts[0] if len(parts) > 1 else "[root]"
+            if top_dir and top_dir != ".":
+                dir_counter[top_dir] += 1
+
+        top_directories = dir_counter.most_common(5)
+
         repo_structure = {
             "name": repo_name,
             "files": all_files,
@@ -472,13 +578,34 @@ def analyze_repository_task(
                 for file_path, content in list(file_contents.items())[:3]:
                     context += f"\n{file_path}:\n{content[:300]}...\n"
 
-            # Use faster LLM call with reduced context
+            fallback_overview = _build_fallback_overview(
+                repo_name,
+                len(all_files),
+                detected_languages,
+                top_directories,
+                important_files[:10],
+            )
+
             repo_overview = llm.explain_repository(repo_structure, context=context)
+            if _has_placeholder_tokens(repo_overview) or _missing_required_sections(
+                repo_overview
+            ):
+                logger.warning(
+                    "[%s] Overview contained placeholder tokens. Using fallback.",
+                    job_id,
+                )
+                repo_overview = fallback_overview
             logger.info("[%s] Generated overview in LLM", job_id)
         except Exception as e:
             logger.warning("[%s] LLM generation failed (using fallback): %s", job_id, e)
-            # Create a simple fallback overview
-            repo_overview = f"Repository '{repo_name}' contains {len(all_files)} files across {len(detected_languages)} languages: {', '.join(detected_languages)}. Analysis includes file structure, dependencies, and code organization."
+            fallback_overview = _build_fallback_overview(
+                repo_name,
+                len(all_files),
+                detected_languages,
+                top_directories,
+                important_files[:10],
+            )
+            repo_overview = fallback_overview
 
         # Step 2.5: Generate node descriptions using LLM for key files
         update_status(JobStatus.BUILDING_GRAPH, 65)

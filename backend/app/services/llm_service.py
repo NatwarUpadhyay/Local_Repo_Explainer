@@ -170,7 +170,6 @@ Analysis:"""
             Repository explanation
         """
         if context:
-            # Detect primary languages from context
             detected_languages = self._detect_languages_from_context(context)
             lang_summary = (
                 ", ".join(detected_languages)
@@ -178,79 +177,53 @@ Analysis:"""
                 else "Multiple languages"
             )
 
-            # Use Chain-of-Thought prompting for detailed analysis
-            prompt = f"""You are a senior software architect conducting a thorough codebase analysis for developers. Think step-by-step and provide well-formatted markdown output.
+            prompt = f"""You are a senior developer advocate tasked with generating a high-signal repository brief for engineers preparing to debug or extend the codebase. Use disciplined chain-of-thought reasoning before responding.
 
-<REPOSITORY_DATA>
+<REPOSITORY_CONTEXT>
 {context}
-</REPOSITORY_DATA>
+</REPOSITORY_CONTEXT>
 
-DETECTED LANGUAGES: {lang_summary}
+THINKING STAGES (do NOT skip):
+1. Inventory: enumerate project type, entry points, notable directories, data stores, deployment targets.
+2. Architecture reasoning: map tiers/modules, describe data/control flow, note coupling boundaries.
+3. Technology evaluation: identify languages, frameworks, key dependencies, and why they are used.
+4. Risk scan: highlight operational risks, debt, or debugging hotspots backed by evidence from context.
+5. Recommendation shaping: derive next-step guidance for developers.
 
-INSTRUCTIONS: Analyze this repository systematically and provide a developer-friendly overview using markdown formatting. Use headers, bullet points, and clear sections.
+OUTPUT FORMAT (markdown, keep sections in this order):
 
-STEP 1 - Initial Observations:
-- What type of project is this? (web app, API, library, CLI tool, etc.)
-- Primary programming languages and frameworks?
-- Overall project structure? (monorepo, microservices, standard layout)
+**Project Snapshot**
+- Purpose:
+- Primary technologies: {lang_summary}
+- Entry points:
 
-STEP 2 - Architecture Analysis:
-- File/directory organization patterns
-- Architectural patterns (MVC, layered, microservices, etc.)
-- Component interactions
-- Main entry points
+**Architecture Map**
+- Structure:
+- Key modules & responsibilities:
+- Data / control flow:
 
-STEP 3 - Technology Stack:
-- Frameworks and libraries
-- Key dependencies and their purposes
-- Build/test/deployment tools
-
-STEP 4 - Code Organization:
-- Design patterns implemented
-- Code structure within files
-- State management approach
-
-STEP 5 - Core Functionality:
-- Main features and capabilities
-- Module interactions
-- External service integrations
-
-Now provide your analysis in this EXACT FORMAT (use markdown):
-
-**Project Overview**
-Brief 2-3 sentence description of what this application does.
-
-**Architecture**
-- File structure and organization
-- Architectural patterns used
-- Key components and their relationships
+**Component Deep Dive**
+1. Component name – responsibility, important files, dependencies
+2. Component name – responsibility, important files, dependencies
+3. Component name – responsibility, important files, dependencies
 
 **Technology Stack**
-- Primary language(s): {lang_summary}
-- Frameworks: List the frameworks
-- Key dependencies: List important libraries
+- Frameworks & libraries:
+- Tooling / build pipeline:
+- External integrations:
 
-**Code Organization**
-- How modules are structured
-- Entry points and main files
-- Design patterns observed
+**Operational Considerations**
+- Performance or scalability notes:
+- Security / compliance notes:
+- Testing & observability state:
 
-**Core Features**
-- Feature 1: Brief description
-- Feature 2: Brief description
-- Feature 3: Brief description
+**Recommended Next Actions**
+1. Action item with rationale
+2. Action item with rationale
+3. Action item with rationale
 
-**Dependencies & External Services**
-- Dependency 1: Purpose
-- Dependency 2: Purpose
-
-**Developer Insights**
-- Notable best practices
-- Areas for potential improvement
-- Recommended next steps
-
-Provide your analysis following this structure:"""
-            max_tokens = 1200
+Respond with concise, information-dense sentences so engineers can act immediately."""
+            max_tokens = 1500
         else:
             # Fallback with simpler CoT for limited context
             files_list = "\n".join(repo_structure.get("files", [])[:20])

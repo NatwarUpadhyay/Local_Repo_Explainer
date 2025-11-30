@@ -32,6 +32,13 @@
 - **Natural Language Generation:** Human-readable explanations from AI agents
 
 ---
+## 🎨 The UI/UX
+
+<img width="2545" height="1238" alt="Screenshot 2025-11-30 135836" src="https://github.com/user-attachments/assets/07bad2b6-6c2f-40a2-b18f-412af70c9fc5" />
+
+## 🎯 The pURPOSE
+
+<img width="1481" height="741" alt="Screenshot 2025-11-30 150102" src="https://github.com/user-attachments/assets/a2fda7c8-8b79-4315-9194-e904504766f5" />
 
 ## 🚀 Quick Start
 

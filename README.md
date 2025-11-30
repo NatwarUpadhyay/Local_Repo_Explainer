@@ -1,3 +1,5 @@
+<img width="764" height="697" alt="Screenshot 2025-11-30 141120" src="https://github.com/user-attachments/assets/981e02cf-dc25-4fec-87fc-2db9651f8323" />
+
 # 🚀 LocalRepoExplainer - Agentic AI Code Analysis
 
 **Understand code in seconds** with autonomous AI agents and Chain-of-Thought reasoning. Built for developers and teams who value **privacy, intelligence, and control**.

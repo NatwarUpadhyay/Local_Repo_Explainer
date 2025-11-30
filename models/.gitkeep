@@ -1,0 +1,3 @@
+# This file ensures the models/ directory is tracked by Git
+# LLM model files (.gguf) are excluded via .gitignore due to their large size
+# Users should download models using: python download_model.py

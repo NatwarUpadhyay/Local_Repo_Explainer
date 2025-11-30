@@ -1,0 +1,7 @@
+# worker/requirements.txt
+celery
+redis
+sqlmodel
+requests
+# Add other worker-specific dependencies here
+# e.g., gitpython, tree-sitter

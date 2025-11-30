@@ -1,0 +1,9 @@
+# backend/requirements.txt
+fastapi
+uvicorn[standard]
+pydantic
+celery
+redis
+requests
+sqlmodel
+llama-cpp-python

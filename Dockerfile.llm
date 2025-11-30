@@ -1,0 +1,33 @@
+# Dockerfile.llm
+# This Dockerfile builds the llama.cpp server
+FROM alpine:3.18 AS builder
+
+# Install build dependencies
+RUN apk add --no-cache build-base git cmake curl-dev
+
+# Clone and build llama.cpp
+WORKDIR /src
+RUN git clone https://github.com/ggerganov/llama.cpp.git
+WORKDIR /src/llama.cpp
+# RUN make server
+# RUN apk add --no-cache cmake
+RUN cmake .
+RUN cmake --build . --config Release
+
+# ---
+
+# Final image
+FROM alpine:3.18
+
+WORKDIR /app
+
+# Copy the server binary from the builder stage
+COPY --from=builder /src/llama.cpp/server /app/server
+
+# Create a directory for models
+RUN mkdir /models
+
+EXPOSE 8080
+
+# The command to run the server will be provided by docker-compose
+# Example: ["./server", "-m", "/models/model.gguf", "-c", "4096", "--host", "0.0.0.0", "--port", "8080"]

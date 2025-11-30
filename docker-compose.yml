@@ -1,0 +1,84 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app/backend
+      - db_data:/app/data
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=sqlite:////app/data/repoinsight.db
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      - redis
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    volumes:
+      # Mount the entire project to make backend code available
+      - .:/app
+      - db_data:/app/data
+    env_file:
+      - .env
+    environment:
+      # Set PYTHONPATH so celery can find 'backend.app.worker'
+      - PYTHONPATH=/app
+      - DATABASE_URL=sqlite:////app/data/repoinsight.db
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      - redis
+      - api # Ensures api is running, though not strictly needed for startup
+    # The command to run the celery worker
+    command: celery -A backend.app.worker worker --loglevel=info
+
+  redis:
+    image: "redis:alpine"
+    ports:
+      - "6379:6379"
+
+  llm:
+    build:
+      context: .
+      dockerfile: Dockerfile.llm
+    ports:
+      - "8080:8080"
+    volumes:
+      - ${LOCAL_MODEL_PATH}:/models/model.gguf
+    command: ["./server", "-m", "/models/model.gguf", "-c", "4096", "--host", "0.0.0.0", "--port", "8080"]
+    # TODO: Add resource limits and GPU support for production
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+volumes:
+  db_data:
+  postgres_data:
+  redis_data:
+  minio_data:

@@ -4,9 +4,11 @@ from pydantic import BaseModel
 
 router = APIRouter()
 
+
 class HealthResponse(BaseModel):
     status: str
     services: dict
+
 
 @router.get("/system/health", response_model=HealthResponse)
 async def health_check():
@@ -20,6 +22,6 @@ async def health_check():
             "database": "ok",
             "cache": "ok",
             "queue": "ok",
-            "llm_service": "ok"
-        }
+            "llm_service": "ok",
+        },
     }

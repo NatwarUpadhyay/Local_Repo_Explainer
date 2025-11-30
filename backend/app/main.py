@@ -34,9 +34,9 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Database initialization failed: {e}")
         # The app will start, but /ready will return false.
-    
+
     yield
-    
+
     logger.info("--- Shutting down RepoInsight API ---")
 
 
@@ -45,7 +45,7 @@ app = FastAPI(
     title="RepoInsight API",
     description="API for analyzing and understanding code repositories.",
     version="0.1.0",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # --- CORS Middleware ---

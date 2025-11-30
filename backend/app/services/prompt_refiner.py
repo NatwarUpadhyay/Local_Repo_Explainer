@@ -7,11 +7,11 @@ Transforms user queries into structured Chain-of-Thought prompts.
 def refine_user_query(user_query: str, use_case: str = "repo_explain") -> str:
     """
     Refine user query into a structured Chain-of-Thought prompt.
-    
+
     Args:
         user_query: Raw user input query
         use_case: Context for prompt generation (default: "repo_explain")
-    
+
     Returns:
         Refined prompt string with CoT structure
     """
@@ -30,7 +30,7 @@ Please provide:
 
 Think through each step carefully before providing your final response in plain text."""
         return template
-    
+
     elif use_case == "code_review":
         template = f"""You are a senior code reviewer. Analyze this code review request methodically using PLAIN TEXT only.
 
@@ -46,7 +46,7 @@ Evaluation steps:
 
 Think step by step and be thorough in your review. Use plain text formatting only."""
         return template
-    
+
     else:
         # Generic fallback
         template = f"""Analyze the following query carefully using PLAIN TEXT only:

@@ -4,6 +4,7 @@ import os
 
 LLM_SERVER_URL = os.getenv("LLM_SERVER_URL", "http://llm:8080")
 
+
 class LLMClient:
     def __init__(self, server_url: str = LLM_SERVER_URL):
         self.server_url = server_url
@@ -19,9 +20,9 @@ class LLMClient:
                     "prompt": prompt,
                     "n_predict": 256,  # Max tokens to generate
                     "temperature": 0.2,
-                    "stop": ["\nUser:", "\nSystem:"] # Stop sequences
+                    "stop": ["\nUser:", "\nSystem:"],  # Stop sequences
                 },
-                timeout=60 # 60-second timeout
+                timeout=60,  # 60-second timeout
             )
             response.raise_for_status()
             # The actual content is in the 'content' key of the JSON response
@@ -29,6 +30,7 @@ class LLMClient:
         except requests.exceptions.RequestException as e:
             print(f"Error calling LLM service: {e}")
             return "Error: Could not connect to the explanation service."
+
 
 # Example usage (for testing)
 if __name__ == "__main__":

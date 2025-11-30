@@ -1,6 +1,7 @@
 """
 Chat API endpoints for interactive repository Q&A.
 """
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
@@ -15,6 +16,7 @@ router = APIRouter()
 
 class ChatRequest(BaseModel):
     """Chat request model."""
+
     job_id: str
     message: str
     context: Optional[str] = ""
@@ -24,6 +26,7 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     """Chat response model."""
+
     response: str
     job_id: str
 
@@ -32,24 +35,24 @@ class ChatResponse(BaseModel):
 async def chat_with_repository(request: ChatRequest):
     """
     Chat with the analyzed repository using local LLM.
-    
+
     Args:
         request: ChatRequest with message and context
-        
+
     Returns:
         ChatResponse with LLM's answer
     """
     try:
         logger.info(f"Chat request for job {request.job_id}: {request.message}")
-        
+
         # Get LLM instance (path resolution handled in get_llm_instance)
         llm = get_llm_instance(request.model_path)
         if not llm:
             raise HTTPException(
                 status_code=503,
-                detail="LLM service not available. Please check model configuration."
+                detail="LLM service not available. Please check model configuration.",
             )
-        
+
         # Build Chain-of-Thought prompt for clean, structured responses
         prompt = f"""You are an expert code assistant analyzing a software repository.
 
@@ -74,25 +77,18 @@ Think step-by-step:
 - Finally, provide a clear, well-structured answer
 
 Your answer (plain text only, no markdown):"""
-        
+
         # Generate response
         response_text = llm.generate(
-            prompt=prompt,
-            max_tokens=800,
-            temperature=0.7,
-            top_p=0.9
+            prompt=prompt, max_tokens=800, temperature=0.7, top_p=0.9
         )
-        
+
         logger.info(f"Generated chat response for job {request.job_id}")
-        
-        return ChatResponse(
-            response=response_text.strip(),
-            job_id=request.job_id
-        )
-        
+
+        return ChatResponse(response=response_text.strip(), job_id=request.job_id)
+
     except Exception as e:
         logger.error(f"Chat error: {e}", exc_info=True)
         raise HTTPException(
-            status_code=500,
-            detail=f"Failed to generate chat response: {str(e)}"
+            status_code=500, detail=f"Failed to generate chat response: {str(e)}"
         )

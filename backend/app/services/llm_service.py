@@ -1,6 +1,7 @@
 """
 Local LLM service using llama.cpp for inference.
 """
+
 import os
 import logging
 from typing import Optional, Dict, Any
@@ -10,6 +11,7 @@ logger = logging.getLogger(__name__)
 # Lazy import to avoid startup errors if llama-cpp-python not installed
 try:
     from llama_cpp import Llama
+
     LLAMA_CPP_AVAILABLE = True
 except ImportError:
     logger.warning("llama-cpp-python not installed. Local LLM features disabled.")
@@ -21,56 +23,58 @@ class LocalLLM:
     """
     Wrapper for local LLM inference using llama.cpp.
     """
-    
+
     def __init__(self, model_path: str, n_ctx: int = 2048, n_threads: int = 4):
         """
         Initialize the local LLM.
-        
+
         Args:
             model_path: Path to the GGUF model file
             n_ctx: Context window size (default: 2048 tokens)
             n_threads: Number of CPU threads to use
         """
         if not LLAMA_CPP_AVAILABLE:
-            raise ImportError("llama-cpp-python not installed. Run: pip install llama-cpp-python")
-        
+            raise ImportError(
+                "llama-cpp-python not installed. Run: pip install llama-cpp-python"
+            )
+
         if not os.path.exists(model_path):
             raise FileNotFoundError(f"Model file not found: {model_path}")
-        
+
         logger.info(f"Loading model from {model_path}...")
         self.model_path = model_path
-        
+
         try:
             self.llm = Llama(
                 model_path=model_path,
                 n_ctx=n_ctx,
                 n_threads=n_threads,
                 n_gpu_layers=0,  # Use CPU only for now
-                verbose=False
+                verbose=False,
             )
             logger.info(f"Model loaded successfully: {model_path}")
         except Exception as e:
             logger.error(f"Failed to load model: {e}")
             raise
-    
+
     def generate(
         self,
         prompt: str,
         max_tokens: int = 512,
         temperature: float = 0.7,
         top_p: float = 0.9,
-        stop: Optional[list] = None
+        stop: Optional[list] = None,
     ) -> str:
         """
         Generate text from the model.
-        
+
         Args:
             prompt: Input prompt text
             max_tokens: Maximum tokens to generate
             temperature: Sampling temperature (0.0-1.0)
             top_p: Nucleus sampling parameter
             stop: Stop sequences
-            
+
         Returns:
             Generated text string
         """
@@ -81,24 +85,26 @@ class LocalLLM:
                 temperature=temperature,
                 top_p=top_p,
                 stop=stop or [],
-                echo=False
+                echo=False,
             )
-            
+
             return response["choices"][0]["text"].strip()
-        
+
         except Exception as e:
             logger.error(f"Generation failed: {e}")
             raise
-    
-    def analyze_code(self, code_snippet: str, context: str = "", language: str = "unknown") -> str:
+
+    def analyze_code(
+        self, code_snippet: str, context: str = "", language: str = "unknown"
+    ) -> str:
         """
         Analyze a code snippet with language-specific insights.
-        
+
         Args:
             code_snippet: The code to analyze
             context: Additional context (file path, purpose, etc.)
             language: Programming language (for specialized analysis)
-            
+
         Returns:
             Analysis text
         """
@@ -118,10 +124,13 @@ class LocalLLM:
             "swift": "Examine optionals, protocols, extensions, generics, and iOS/macOS specific patterns. Look for proper memory management with ARC.",
             "kotlin": "Analyze null safety, coroutines, extension functions, data classes, and Android-specific patterns. Check for interoperability with Java.",
         }
-        
+
         lang_key = language.lower()
-        specific_instructions = language_instructions.get(lang_key, "Analyze language-specific patterns, common frameworks, and best practices for this programming language.")
-        
+        specific_instructions = language_instructions.get(
+            lang_key,
+            "Analyze language-specific patterns, common frameworks, and best practices for this programming language.",
+        )
+
         prompt = f"""You are a code analysis expert specializing in {language.upper()} development. Analyze the following code with deep understanding of {language} idioms and best practices.
 
 Context: {context if context else "General code analysis"}
@@ -144,25 +153,31 @@ Provide a detailed analysis covering:
 6. Best Practices: Adherence to {language} conventions and standards
 
 Analysis:"""
-        
+
         return self.generate(prompt, max_tokens=500, temperature=0.3)
-    
-    def explain_repository(self, repo_structure: Dict[str, Any], context: str = "") -> str:
+
+    def explain_repository(
+        self, repo_structure: Dict[str, Any], context: str = ""
+    ) -> str:
         """
         Generate comprehensive repository explanation using Chain-of-Thought reasoning.
-        
+
         Args:
             repo_structure: Dictionary with repository information
             context: Additional detailed context about files and content
-            
+
         Returns:
             Repository explanation
         """
         if context:
             # Detect primary languages from context
             detected_languages = self._detect_languages_from_context(context)
-            lang_summary = ", ".join(detected_languages) if detected_languages else "Multiple languages"
-            
+            lang_summary = (
+                ", ".join(detected_languages)
+                if detected_languages
+                else "Multiple languages"
+            )
+
             # Use Chain-of-Thought prompting for detailed analysis
             prompt = f"""You are a senior software architect conducting a thorough codebase analysis for developers. Think step-by-step and provide well-formatted markdown output.
 
@@ -239,7 +254,7 @@ Provide your analysis following this structure:"""
         else:
             # Fallback with simpler CoT for limited context
             files_list = "\n".join(repo_structure.get("files", [])[:20])
-            
+
             prompt = f"""You are a repository analyst. Analyze this codebase step-by-step.
 
 Repository: {repo_structure.get("name", "Unknown")}
@@ -264,16 +279,16 @@ Now provide your analysis:
 
 Analysis:"""
             max_tokens = 400
-        
+
         return self.generate(prompt, max_tokens=max_tokens, temperature=0.5)
-    
+
     def analyze_vulnerability(self, context: str) -> str:
         """
         Generate vulnerability analysis for a repository.
-        
+
         Args:
             context: Repository context or component information
-            
+
         Returns:
             Vulnerability analysis text
         """
@@ -310,80 +325,103 @@ If NO vulnerabilities found, state: "No immediate security concerns identified i
 IMPORTANT: Be specific and technical. Focus on actual security risks, not general code quality.
 
 Security Analysis:"""
-        
+
         return self.generate(prompt, max_tokens=600, temperature=0.5)
-    
+
     def _detect_languages_from_context(self, context: str) -> list:
         """
         Detect programming languages from repository context.
-        
+
         Args:
             context: Repository context string
-            
+
         Returns:
             List of detected language names
         """
         language_indicators = {
-            'python': ['.py', 'python', 'django', 'flask', 'fastapi', 'requirements.txt', 'setup.py'],
-            'javascript': ['.js', 'javascript', 'node', 'react', 'vue', 'package.json', 'npm'],
-            'typescript': ['.ts', '.tsx', 'typescript', 'angular', 'next.js'],
-            'java': ['.java', 'java', 'spring', 'maven', 'gradle', 'pom.xml'],
-            'c': ['.c', '.h', 'stdio.h', 'stdlib.h'],
-            'cpp': ['.cpp', '.hpp', '.cc', 'c++', 'std::', '#include <iostream>'],
-            'csharp': ['.cs', 'c#', 'csharp', '.net', 'asp.net', 'using System'],
-            'go': ['.go', 'golang', 'package main', 'import "fmt"'],
-            'rust': ['.rs', 'rust', 'cargo', 'fn main()', 'use std::'],
-            'php': ['.php', 'php', 'laravel', 'symfony', '<?php'],
-            'ruby': ['.rb', 'ruby', 'rails', 'def ', 'class ', 'Gemfile'],
-            'swift': ['.swift', 'swift', 'import UIKit', 'import SwiftUI'],
-            'kotlin': ['.kt', 'kotlin', 'fun main', 'import android'],
+            "python": [
+                ".py",
+                "python",
+                "django",
+                "flask",
+                "fastapi",
+                "requirements.txt",
+                "setup.py",
+            ],
+            "javascript": [
+                ".js",
+                "javascript",
+                "node",
+                "react",
+                "vue",
+                "package.json",
+                "npm",
+            ],
+            "typescript": [".ts", ".tsx", "typescript", "angular", "next.js"],
+            "java": [".java", "java", "spring", "maven", "gradle", "pom.xml"],
+            "c": [".c", ".h", "stdio.h", "stdlib.h"],
+            "cpp": [".cpp", ".hpp", ".cc", "c++", "std::", "#include <iostream>"],
+            "csharp": [".cs", "c#", "csharp", ".net", "asp.net", "using System"],
+            "go": [".go", "golang", "package main", 'import "fmt"'],
+            "rust": [".rs", "rust", "cargo", "fn main()", "use std::"],
+            "php": [".php", "php", "laravel", "symfony", "<?php"],
+            "ruby": [".rb", "ruby", "rails", "def ", "class ", "Gemfile"],
+            "swift": [".swift", "swift", "import UIKit", "import SwiftUI"],
+            "kotlin": [".kt", "kotlin", "fun main", "import android"],
         }
-        
+
         context_lower = context.lower()
         detected = []
-        
+
         for lang, indicators in language_indicators.items():
             if any(indicator in context_lower for indicator in indicators):
                 detected.append(lang.capitalize())
-        
+
         return detected[:5]  # Return top 5 detected languages
 
 
 def get_llm_instance(model_path: Optional[str] = None) -> Optional[LocalLLM]:
     """
     Get or create LLM instance.
-    
+
     Args:
         model_path: Path to model file (uses env var if not provided)
-        
+
     Returns:
         LocalLLM instance or None if unavailable
     """
     if not LLAMA_CPP_AVAILABLE:
         logger.warning("llama-cpp-python not available")
         return None
-    
+
     resolved_path = model_path or os.getenv("LOCAL_MODEL_PATH")
-    
+
     if not resolved_path:
         logger.warning("No model path provided")
         return None
-    
+
     # Resolve relative paths (same logic as worker)
     if not os.path.isabs(resolved_path):
         possible_paths = [
             resolved_path,
             os.path.join(os.getcwd(), resolved_path),
-            os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), resolved_path),
-            os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "models", resolved_path),
+            os.path.join(
+                os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+                resolved_path,
+            ),
+            os.path.join(
+                os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+                "models",
+                resolved_path,
+            ),
         ]
-        
+
         for path in possible_paths:
             if os.path.exists(path) and os.path.isfile(path):
                 resolved_path = path
                 logger.info(f"Resolved model path: {resolved_path}")
                 break
-    
+
     try:
         return LocalLLM(resolved_path)
     except Exception as e:

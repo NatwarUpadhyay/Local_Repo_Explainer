@@ -29,7 +29,7 @@ def create_job(
         repo_url=job_in.repo_url,
         source_type=job_in.source_type,
         model_id=job_in.model_id or "llama-3.2-1b",
-        model_path=job_in.model_path
+        model_path=job_in.model_path,
     )
     db.add(db_job)
     db.commit()
@@ -61,7 +61,9 @@ def create_job(
                 task(str(db_job.id), db_job.model_id, db_job.model_path)
         except Exception as e:
             # If fallback also errors, raise an HTTP error so the client sees failure
-            raise HTTPException(status_code=500, detail=f"Failed to start analysis task: {e}")
+            raise HTTPException(
+                status_code=500, detail=f"Failed to start analysis task: {e}"
+            )
 
     return db_job
 
@@ -107,41 +109,47 @@ async def upload_and_analyze(
     Upload a repository archive (.zip or .tar.gz) and create an analysis job.
     """
     # Validate file type
-    if not (file.filename.endswith('.zip') or file.filename.endswith('.tar.gz') or file.filename.endswith('.tgz')):
-        raise HTTPException(status_code=400, detail="Only .zip and .tar.gz files are supported")
-    
+    if not (
+        file.filename.endswith(".zip")
+        or file.filename.endswith(".tar.gz")
+        or file.filename.endswith(".tgz")
+    ):
+        raise HTTPException(
+            status_code=400, detail="Only .zip and .tar.gz files are supported"
+        )
+
     # Create temporary directory to extract the archive
     temp_dir = tempfile.mkdtemp(prefix="upload_")
-    
+
     try:
         # Save uploaded file
         temp_file = os.path.join(temp_dir, file.filename)
-        with open(temp_file, 'wb') as f:
+        with open(temp_file, "wb") as f:
             content = await file.read()
             f.write(content)
-        
+
         # Extract the archive
         extract_dir = os.path.join(temp_dir, "extracted")
         os.makedirs(extract_dir, exist_ok=True)
-        
-        if file.filename.endswith('.zip'):
-            with zipfile.ZipFile(temp_file, 'r') as zip_ref:
+
+        if file.filename.endswith(".zip"):
+            with zipfile.ZipFile(temp_file, "r") as zip_ref:
                 zip_ref.extractall(extract_dir)
         else:  # tar.gz or tgz
-            with tarfile.open(temp_file, 'r:gz') as tar_ref:
+            with tarfile.open(temp_file, "r:gz") as tar_ref:
                 tar_ref.extractall(extract_dir)
-        
+
         # Create job with local path instead of URL
         db_job = models.Job(
             repo_url=f"local:{file.filename}",  # Mark as local upload
             source_type="upload",
             model_id=model_id or "llama-3.2-1b",
-            model_path=model_path
+            model_path=model_path,
         )
         db.add(db_job)
         db.commit()
         db.refresh(db_job)
-        
+
         # Enqueue analysis task with local path
         worker_module = importlib.import_module("backend.app.worker")
         try:
@@ -149,21 +157,40 @@ async def upload_and_analyze(
                 str(db_job.id),
                 db_job.model_id,
                 db_job.model_path,
-                local_path=extract_dir
+                local_path=extract_dir,
             )
         except Exception:
             try:
                 task = worker_module.analyze_repository_task
                 if hasattr(task, "run"):
-                    task.run(str(db_job.id), db_job.model_id, db_job.model_path, local_path=extract_dir)
+                    task.run(
+                        str(db_job.id),
+                        db_job.model_id,
+                        db_job.model_path,
+                        local_path=extract_dir,
+                    )
                 elif hasattr(task, "__wrapped__"):
-                    task.__wrapped__(str(db_job.id), db_job.model_id, db_job.model_path, local_path=extract_dir)
+                    task.__wrapped__(
+                        str(db_job.id),
+                        db_job.model_id,
+                        db_job.model_path,
+                        local_path=extract_dir,
+                    )
                 else:
-                    task(str(db_job.id), db_job.model_id, db_job.model_path, local_path=extract_dir)
+                    task(
+                        str(db_job.id),
+                        db_job.model_id,
+                        db_job.model_path,
+                        local_path=extract_dir,
+                    )
             except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Failed to start analysis: {e}")
-        
+                raise HTTPException(
+                    status_code=500, detail=f"Failed to start analysis: {e}"
+                )
+
         return db_job
-        
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to process upload: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to process upload: {str(e)}"
+        )

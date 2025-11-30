@@ -1,6 +1,7 @@
 """
 API endpoints for LLM model management and validation.
 """
+
 import os
 from typing import Optional, List
 from fastapi import APIRouter
@@ -12,6 +13,7 @@ router = APIRouter()
 
 class ModelDescriptor(BaseModel):
     """Model descriptor with metadata."""
+
     id: str
     name: str
     size: str
@@ -26,12 +28,14 @@ class ModelDescriptor(BaseModel):
 
 class ModelTestRequest(BaseModel):
     """Request to test a model configuration."""
+
     model_id: str
     path: Optional[str] = None
 
 
 class ModelTestResponse(BaseModel):
     """Response from model test."""
+
     ok: bool
     valid: bool = False
     info: Optional[str] = None
@@ -44,12 +48,14 @@ class ModelTestResponse(BaseModel):
 
 class ModelSaveRequest(BaseModel):
     """Request to save model configuration."""
+
     model_id: str
     path: str
 
 
 class ModelSaveResponse(BaseModel):
     """Response from model save."""
+
     ok: bool
     saved_line: Optional[str] = None
     error: Optional[str] = None
@@ -71,7 +77,7 @@ async def list_models():
             cpu_capable=True,
             gpu_capable=True,
             download_url="https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF",
-            description="Fast, lightweight model perfect for code analysis. Q4_K_M quantization (~810MB). Good quality, recommended for most use cases."
+            description="Fast, lightweight model perfect for code analysis. Q4_K_M quantization (~810MB). Good quality, recommended for most use cases.",
         ),
         ModelDescriptor(
             id="qwen2.5-coder-1.5b",
@@ -82,7 +88,7 @@ async def list_models():
             cpu_capable=True,
             gpu_capable=True,
             download_url="https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF",
-            description="Optimized for code understanding. Download Q4_K_M variant (~1GB)."
+            description="Optimized for code understanding. Download Q4_K_M variant (~1GB).",
         ),
         ModelDescriptor(
             id="phi-3-mini",
@@ -93,7 +99,7 @@ async def list_models():
             cpu_capable=True,
             gpu_capable=True,
             download_url="https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf",
-            description="Microsoft's efficient model for code. Download Q4_K_M variant (~2.2GB)."
+            description="Microsoft's efficient model for code. Download Q4_K_M variant (~2.2GB).",
         ),
         ModelDescriptor(
             id="custom-model",
@@ -105,8 +111,8 @@ async def list_models():
             gpu_capable=True,
             download_url=None,
             description="Use any GGUF format model from HuggingFace or your own fine-tuned model.",
-            is_custom=True
-        )
+            is_custom=True,
+        ),
     ]
 
 
@@ -118,64 +124,61 @@ async def test_model(request: ModelTestRequest):
     """
     # Local model validation
     model_path = request.path or os.getenv("LOCAL_MODEL_PATH")
-    
+
     if not model_path:
         return ModelTestResponse(
             ok=False,
             valid=False,
-            error="No model path provided and LOCAL_MODEL_PATH not set"
+            error="No model path provided and LOCAL_MODEL_PATH not set",
         )
-    
+
     # Validate path exists
     if not os.path.exists(model_path):
         return ModelTestResponse(
-            ok=False,
-            valid=False,
-            error=f"Model file not found: {model_path}"
+            ok=False, valid=False, error=f"Model file not found: {model_path}"
         )
-    
+
     # Check if it's a file
     if not os.path.isfile(model_path):
         return ModelTestResponse(
-            ok=False,
-            valid=False,
-            error=f"Path is not a file: {model_path}"
+            ok=False, valid=False, error=f"Path is not a file: {model_path}"
         )
-    
+
     # Check minimum size (1MB) and file extension
     size_bytes = os.path.getsize(model_path)
     size_mb = size_bytes / (1024 * 1024)
-    
+
     if size_bytes < 1024 * 1024:
         return ModelTestResponse(
             ok=False,
             valid=False,
-            error=f"Model file too small ({size_bytes} bytes), expected > 1MB"
+            error=f"Model file too small ({size_bytes} bytes), expected > 1MB",
         )
-    
+
     # Check for GGUF extension (recommended format)
-    if not model_path.lower().endswith('.gguf'):
+    if not model_path.lower().endswith(".gguf"):
         return ModelTestResponse(
             ok=True,
             valid=True,
             model_path=model_path,
             size_bytes=size_bytes,
             size_mb=size_mb,
-            message=f"Warning: File does not have .gguf extension. Size: {size_mb:.2f}MB"
+            message=f"Warning: File does not have .gguf extension. Size: {size_mb:.2f}MB",
         )
-    
+
     return ModelTestResponse(
         ok=True,
         valid=True,
         model_path=model_path,
         size_bytes=size_bytes,
         size_mb=size_mb,
-        info=f"Valid GGUF model found: {size_mb:.2f}MB"
+        info=f"Valid GGUF model found: {size_mb:.2f}MB",
     )
 
 
 class ModelValidateRequest(BaseModel):
     """Request to validate a model file."""
+
     model_path: str
 
 
@@ -199,39 +202,33 @@ async def save_model(request: ModelSaveRequest):
     """
     # Sanitize path - prevent parent directory traversal
     clean_path = request.path.replace("..", "").replace("~", "")
-    
+
     # Convert to absolute path for validation
     abs_path = os.path.abspath(clean_path)
-    
+
     # Find project root (.env location)
     current_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.abspath(os.path.join(current_dir, "..", "..", ".."))
     env_file = os.path.join(project_root, ".env")
-    
+
     # Read existing .env or create new
     env_lines = []
     if os.path.exists(env_file):
         with open(env_file, "r") as f:
             env_lines = f.readlines()
-    
+
     # Remove existing LOCAL_MODEL_PATH line
     env_lines = [line for line in env_lines if not line.startswith("LOCAL_MODEL_PATH=")]
-    
+
     # Add new line
     new_line = f"LOCAL_MODEL_PATH={abs_path}\n"
     env_lines.append(new_line)
-    
+
     # Write back
     try:
         with open(env_file, "w") as f:
             f.writelines(env_lines)
-        
-        return ModelSaveResponse(
-            ok=True,
-            saved_line=new_line.strip()
-        )
+
+        return ModelSaveResponse(ok=True, saved_line=new_line.strip())
     except Exception as e:
-        return ModelSaveResponse(
-            ok=False,
-            error=f"Failed to write .env: {str(e)}"
-        )
+        return ModelSaveResponse(ok=False, error=f"Failed to write .env: {str(e)}")

@@ -24,6 +24,7 @@ from backend.app.models import JobStatus
 DATABASE_URL = "sqlite:///:memory:"
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 
+
 # --- Dependency Override ---
 # This function will override the `get_db` dependency used in the main application.
 # Instead of connecting to the production database, requests will use this in-memory DB.
@@ -36,6 +37,7 @@ def override_get_db():
         yield db
     finally:
         db.close()
+
 
 # Apply the dependency override to the FastAPI app instance.
 app.dependency_overrides[get_db] = override_get_db
@@ -61,11 +63,12 @@ def client_fixture():
 
 # --- Test Cases ---
 
+
 def test_create_job_and_get_status(client: TestClient, mocker):
     """
     Tests the full flow of creating a job and then fetching its status.
     """
-    # The worker module is already mocked in conftest.py, 
+    # The worker module is already mocked in conftest.py,
     # but we still need to mock the delay method for this test
     mock_delay = mocker.MagicMock()
     mocker.patch("backend.app.worker.analyze_repository_task.delay", mock_delay)
@@ -118,6 +121,7 @@ def test_get_graph_for_incomplete_job(client: TestClient, mocker):
     # Assert that the request is rejected as expected
     assert response.status_code == 400
     assert "Job is not complete" in response.json()["detail"]
+
 
 def test_get_nonexistent_job(client: TestClient):
     """

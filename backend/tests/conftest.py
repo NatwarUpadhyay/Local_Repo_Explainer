@@ -15,4 +15,4 @@ os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 mock_worker = MagicMock()
 mock_worker.analyze_repository_task = MagicMock()
 mock_worker.celery_app = MagicMock()
-sys.modules['backend.app.worker'] = mock_worker
+sys.modules["backend.app.worker"] = mock_worker

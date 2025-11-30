@@ -4,6 +4,8 @@ import uuid
 import logging
 from contextlib import contextmanager
 
+from sqlmodel import create_engine, Session
+
 from celery import Celery
 
 # --- Logging ---
@@ -33,7 +35,6 @@ celery_app = Celery(
 )
 
 # --- Database Setup (use sqlmodel for compatibility) ---
-from sqlmodel import create_engine, Session
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./repoinsight.db")
 

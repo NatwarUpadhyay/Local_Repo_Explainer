@@ -140,8 +140,6 @@ class JavaParser(BaseParser):
     
     def parse_imports(self, file_path: Path) -> List[str]:
         """Parse Java/Kotlin file and extract import statements."""
-        imports = []
-        
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()

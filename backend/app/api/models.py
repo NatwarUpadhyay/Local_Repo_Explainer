@@ -3,7 +3,7 @@ API endpoints for LLM model management and validation.
 """
 import os
 from typing import Optional, List
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel
 
 

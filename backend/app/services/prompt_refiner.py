@@ -2,7 +2,6 @@
 Prompt refinement service for LLM interactions.
 Transforms user queries into structured Chain-of-Thought prompts.
 """
-from typing import Optional
 
 
 def refine_user_query(user_query: str, use_case: str = "repo_explain") -> str:

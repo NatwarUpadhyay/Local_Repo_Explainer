@@ -1,6 +1,5 @@
 # backend/app/worker.py
 import os
-import time
 import uuid
 import logging
 from contextlib import contextmanager
@@ -20,7 +19,7 @@ if os.name == 'nt' and 'redis' in CELERY_BROKER_URL:
     try:
         import redis
         redis.Redis.from_url(CELERY_BROKER_URL).ping()
-    except:
+    except Exception:
         logger.warning("Redis not available, using database broker for development")
         CELERY_BROKER_URL = "sqla+sqlite:///celery_broker.db"
         CELERY_RESULT_BACKEND = "db+sqlite:///celery_results.db"
@@ -180,7 +179,6 @@ def analyze_repository_task(job_id: str, model_id: str = "llama-3.2-1b", model_p
             # Clone and analyze the actual repository
             import tempfile
             import subprocess
-            import pathlib
             
             repo_name = repo_url.split("/")[-1].replace(".git", "")
             temp_dir = tempfile.mkdtemp(prefix=f"repo_{job_id}_")

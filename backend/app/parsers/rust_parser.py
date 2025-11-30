@@ -124,8 +124,6 @@ class RustParser(BaseParser):
     
     def parse_imports(self, file_path: Path) -> List[str]:
         """Parse Rust file and extract use statements."""
-        imports = []
-        
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()

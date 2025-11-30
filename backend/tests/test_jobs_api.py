@@ -17,7 +17,7 @@ from sqlmodel import Session, SQLModel, create_engine
 # or use a different import strategy.
 from backend.app.main import app
 from backend.app.database import get_db
-from backend.app.models import Job, JobStatus
+from backend.app.models import JobStatus
 
 # --- Test Database Setup ---
 # Use an in-memory SQLite database for testing to ensure tests are isolated and fast.
